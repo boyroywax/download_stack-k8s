@@ -1,0 +1,177 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-sabnzbd-conf
+  labels:
+    name: nfs-conf # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-sabnzbd-config
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-sabnzbd-downloads
+  labels:
+    name: nfs-conf # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 250Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-sabnzbd-downloads
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 250Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-sabnzbd-incomplete
+  labels:
+    name: nfs-incomplete # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-sabnzbd-incomplete
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sabnzbd-deployment
+  labels:
+    app: sabnzbd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sabnzbd
+  template:
+    metadata:
+      labels:
+        app: sabnzbd
+    spec:
+      containers:
+      - name: sabnzbd
+        image: linuxserver/sabnzbd
+        ports:
+        - containerPort: 6789
+        - containerPort: 8080
+          name: sabnzbd-service
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "America/Los_Angeles"
+        volumeMounts:
+        - mountPath: /config
+          name: sabnzbd-config
+          readOnly: false
+          subPath: usenet/sabnzbd/config
+        - mountPath: /downloads
+          name: sabnzbd-downloads
+          readOnly: false
+          subPath: usenet/sabnzbd/downloads
+        - mountPath: /incomplete-downloads
+          name: sabnzbd-incomplete
+          readOnly: false
+          subPath: usenet/sabnzbd/incomplete
+      - name: restake-nginx
+        image: boyroywax/sabnzbd-nginx:latest
+        env:
+        - name: NGINX_HOST
+          value: "sabnzbd-service:8080"
+        - name: NGINX_PORT
+          value: "80"
+        ports:
+          - containerPort: 80
+            name: nginx-port
+            protocol: TCP
+      volumes:
+      - name: sabnzbd-config
+        persistentVolumeClaim:
+          claimName: nfs-pvc-sabnzbd-config
+      - name: sabnzbd-downloads
+        persistentVolumeClaim:  
+          claimName: nfs-pvc-sabnzbd-downloads
+      - name: sabnzbd-incomplete
+        persistentVolumeClaim:  
+          claimName: nfs-pvc-sabnzbd-incomplete
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: sabnzbd-service
+spec:
+  selector:
+    app: sabnzbd
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  # type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sabnzbd-nginx
+spec:
+  ports:
+  - name: nginx-port
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: sabnzbd
+  type: LoadBalancer
+---

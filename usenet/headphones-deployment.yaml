@@ -1,0 +1,149 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-headphones-conf
+  labels:
+    name: nfs-conf # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-headphones-config
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-headphones-downloads
+  labels:
+    name: nfs-conf # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 250Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-headphones-downloads
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 250Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv-headphones-music
+  labels:
+    name: nfs-music # name can be anything
+spec:
+  storageClassName: manual # same storage class as pvc
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 192.168.0.27 # ip addres of nfs server
+    path: "/media/nfs/" # path to directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc-headphones-music
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headphones-deployment
+  labels:
+    app: headphones
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: headphones
+  template:
+    metadata:
+      labels:
+        app: headphones
+    spec:
+      containers:
+      - name: headphones
+        image: linuxserver/headphones
+        ports:
+        - containerPort: 6789
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "America/Los_Angeles"
+        volumeMounts:
+        - mountPath: /config
+          name: headphones-config
+          readOnly: false
+          subPath: usenet/headphones/config
+        - mountPath: /downloads
+          name: headphones-downloads
+          readOnly: false
+          subPath: usenet/sabnzbd/downloads
+        - mountPath: /music
+          name: headphones-music
+          readOnly: false
+          subPath: usenet/sabnzbd/music
+      volumes:
+      - name: headphones-config
+        persistentVolumeClaim:
+          claimName: nfs-pvc-headphones-config
+      - name: headphones-downloads
+        persistentVolumeClaim:  
+          claimName: nfs-pvc-headphones-downloads
+      - name: headphones-music
+        persistentVolumeClaim:  
+          claimName: nfs-pvc-headphones-music
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: headphones-service
+spec:
+  selector:
+    app: headphones
+  ports:
+  - protocol: TCP
+    port: 8181
+    targetPort: 8181
+  type: LoadBalancer

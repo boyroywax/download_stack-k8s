@@ -1,0 +1,20 @@
+apiVersion: skaffold/v1alpha2
+kind: Config
+# build:
+#   artifacts:
+#   - imageName: boyroywax/flextv
+#     workspace: ./flextv/FlexTV-docker
+# build:
+#   artifacts:
+#   - imageName: boyroywax/sabnzbd-nginx
+#     workspace: ./nginx
+
+deploy:
+  kubectl:
+    manifests:
+      - ./sabnzbd-deployment.yaml
+      - ./couchpotato-deployment.yaml
+      - ./headphones-deployment.yaml
+      - ./sickgear-deployment.yaml
+      # - ./muximux-deployment.yaml
+      # - ./flextv-deployment.yaml
